@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telemetría Dyno</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        h1 { color: #00ff88; }
+        table {
+            border-collapse: collapse;
+            width: 80%;
+            max-width: 800px;
+            background-color: #2d2d2d;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #444;
+        }
+        th {
+            background-color: #00ff88;
+            color: #1a1a1a;
+            text-transform: uppercase;
+            font-size: 14px;
+        }
+        tr:hover { background-color: #3d3d3d; }
+        .status { color: #888; font-size: 12px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <h1>📊 Panel de Telemetría</h1>
+    
+    <table id="tabla-telemetria">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Modelo</th>
+                <th>RPM</th>
+                <th>KM</th>
+                <th>Timestamp</th>
+            </tr>
+        </thead>
+        <tbody id="datos-cuerpo">
+            <!-- Los datos de HeidiSQL aparecerán aquí -->
+        </tbody>
+    </table>
+
+    <p class="status" id="estado">Cargando datos del servidor...</p>
+
+    <script>
+        async function cargarDatos() {
+            try {
+                // Hacemos la petición a tu ruta de FastAPI
+                const respuesta = await fetch('/telemetria');
+                const datos = await respuesta.json();
+                
+                const cuerpoTabla = document.getElementById('datos-cuerpo');
+                cuerpoTabla.innerHTML = ''; // Limpiar tabla antes de llenar
+
+                datos.forEach(item => {
+                    const fila = `
+                        <tr>
+                            <td>${item.id}</td>
+                            <td>**${item.modelo}**</td>
+                            <td>${item.rpm}</td>
+                            <td>${item.km}</td>
+                            <td>${item.timestamp}</td>
+                        </tr>
+                    `;
+                    cuerpoTabla.innerHTML += fila;
+                });
+
+                document.getElementById('estado').innerText = 'Sincronizado con base de datos Dyno ✅';
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('estado').innerText = '❌ Error al conectar con la API';
+            }
+        }
+
+        // Ejecutar la función al cargar la página
+        cargarDatos();
+        
+        // Opcional: Actualizar cada 5 segundos automáticamente
+        // setInterval(cargarDatos, 5000);
+    </script>
+</body>
+</html>
