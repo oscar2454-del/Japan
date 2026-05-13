@@ -7,10 +7,11 @@ import os
 app = FastAPI(title="API de Telemetría Dyno")
 
 db_config = {
-    "host": "localhost",
-    "user": "root",
-    "password": "RipHawai",
-    "database": "Dyno"
+"host": os.getenv("DB_HOST"),
+    "user": os.getenv("DB_USER"),
+    "password": os.getenv("DB_PASSWORD"),
+    "database": os.getenv("DB_NAME"),
+    "port": 3306
 }
 
 def db ():
