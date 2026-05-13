@@ -1,26 +1,30 @@
 from fastapi import FastAPI, HTTPException
 import mysql.connector
-from mysql.connector import Error
+from mysql.connector import pooling, Error
 from fastapi.responses import HTMLResponse
 import os
 
 app = FastAPI(title="API de Telemetría Dyno")
 
 db_config = {
-"host": os.getenv("DB_HOST"),
-    "user": os.getenv("DB_USER"),
-    "password": os.getenv("DB_PASSWORD"),
-    "database": os.getenv("DB_NAME"),
+    "host": os.getenv("DB_HOST", "localhost"),
+    "user": os.getenv("DB_USER", "root"),
+    "password": os.getenv("DB_PASSWORD", "RipHawai"),
+    "database": os.getenv("DB_NAME", "dyno"),
     "port": 3306
 }
 
-def db ():
-    try:
-        connection = mysql.connector.connect(**db_config)
-        return connection
-    except Error as e:
-        print(f"Error al conectar a MySQL: {e}")
-        return None
+try:
+    pool = pooling.MySQLConnectionPool(
+        pool_name="dynopool",
+        pool_size=5,
+        **db_config
+    )
+except Error as e:
+    print(f"Error al crear el pool de conexiones: {e}")
+    pool = None
+
+# --- Rutas ---
 
 @app.get("/", response_class=HTMLResponse)
 async def home():
@@ -28,19 +32,28 @@ async def home():
     if os.path.exists(path):
         with open(path, "r", encoding="utf-8") as f:
             return f.read()
-    return "<h1>Archivo base.html no encontrado en la carpeta templates</h1>"
+    return "<h1>Error: Archivo base.html no encontrado</h1>"
 
 @app.get("/telemetria")
 def obtener_telemetria():
-    conn = db()
-    if conn is None:
-        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
-    
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM telemetria")
-    resultados = cursor.fetchall()
-    
-    cursor.close()
-    conn.close()
-    
-    return resultados
+    if not pool:
+        raise HTTPException(status_code=500, detail="Base de datos no configurada")
+
+    conn = None
+    try:
+        conn = pool.get_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        cursor.execute("SELECT * FROM telemetria ORDER BY id DESC LIMIT 50")
+        resultados = cursor.fetchall()
+        
+        return resultados
+
+    except Error as e:
+        raise HTTPException(status_code=500, detail=f"Error en la consulta: {e}")
+
+    finally:
+        # Aquí no cerramos la conexión, la devolvemos al pool para el siguiente
+        if conn and conn.is_connected():
+            cursor.close()
+            conn.close()
